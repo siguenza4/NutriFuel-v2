@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 
 export default function RequestsPage() {
   const { data: session } = useSession()
   const [requests, setRequests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedType, setSelectedType] = useState('meal_swap')
   const [description, setDescription] = useState('')
 
@@ -15,19 +16,51 @@ export default function RequestsPage() {
     { value: 'goal_adjust', label: 'Adjust Goal' },
   ]
 
-  const addRequest = () => {
+  useEffect(() => {
+    if (session) {
+      fetchRequests()
+    }
+  }, [session])
+
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch('/api/requests')
+      if (res.ok) {
+        const data = await res.json()
+        setRequests(data)
+      }
+    } catch (error) {
+      console.error('Error fetching requests:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addRequest = async () => {
     if (!description) return
 
-    const newRequest = {
-      id: Date.now(),
-      type: selectedType,
-      description,
-      status: 'pending',
-      createdAt: new Date().toLocaleDateString(),
-    }
+    try {
+      const res = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: selectedType,
+          description,
+        }),
+      })
 
-    setRequests([...requests, newRequest])
-    setDescription('')
+      if (res.ok) {
+        const newRequest = await res.json()
+        setRequests([newRequest, ...requests])
+        setDescription('')
+      }
+    } catch (error) {
+      console.error('Error adding request:', error)
+    }
+  }
+
+  if (loading) {
+    return <div className="text-gold">Loading...</div>
   }
 
   return (
