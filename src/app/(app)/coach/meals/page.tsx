@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 
 const FOODS = [
@@ -14,9 +14,30 @@ const FOODS = [
 export default function MealsPage() {
   const { data: session } = useSession()
   const [meals, setMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [mealName, setMealName] = useState('')
   const [mealItems, setMealItems] = useState<{ foodId: number; quantity: number }[]>([{ foodId: 1, quantity: 100 }])
+
+  useEffect(() => {
+    if (session) {
+      fetchMeals()
+    }
+  }, [session])
+
+  const fetchMeals = async () => {
+    try {
+      const res = await fetch('/api/meals/templates')
+      if (res.ok) {
+        const data = await res.json()
+        setMeals(data)
+      }
+    } catch (error) {
+      console.error('Error fetching meals:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const addItem = () => {
     setMealItems([...mealItems, { foodId: 1, quantity: 100 }])
@@ -43,28 +64,33 @@ export default function MealsPage() {
     )
   }
 
-  const saveMeal = () => {
+  const saveMeal = async () => {
     if (!mealName || mealItems.length === 0) return
 
-    const macros = calculateMealMacros()
-    const newMeal = {
-      id: Date.now(),
-      name: mealName,
-      items: mealItems.map((item) => ({
-        ...item,
-        foodName: FOODS.find((f) => f.id === item.foodId)?.name,
-      })),
-      ...macros,
-      createdAt: new Date().toLocaleDateString(),
-    }
+    try {
+      const res = await fetch('/api/meals/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: mealName,
+          items: mealItems,
+        }),
+      })
 
-    setMeals([...meals, newMeal])
-    setMealName('')
-    setMealItems([{ foodId: 1, quantity: 100 }])
-    setShowForm(false)
+      if (res.ok) {
+        const newMeal = await res.json()
+        setMeals([...meals, newMeal])
+        setMealName('')
+        setMealItems([{ foodId: 1, quantity: 100 }])
+        setShowForm(false)
+      }
+    } catch (error) {
+      console.error('Error saving meal:', error)
+    }
   }
 
-  const deleteMeal = (id: number) => {
+  const deleteMeal = (id: string) => {
+    // TODO: Add DELETE endpoint for meal templates
     setMeals(meals.filter((m) => m.id !== id))
   }
 

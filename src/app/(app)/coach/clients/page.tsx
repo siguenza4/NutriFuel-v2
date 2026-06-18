@@ -1,32 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 export default function ClientsPage() {
   const { data: session } = useSession()
   const [clients, setClients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({ email: '', name: '', calories: '2000', protein: '150' })
 
-  const addClient = () => {
-    if (!formData.email || !formData.name) return
-
-    const newClient = {
-      id: Date.now(),
-      ...formData,
-      calories: parseInt(formData.calories),
-      protein: parseInt(formData.protein),
-      createdAt: new Date().toLocaleDateString(),
+  useEffect(() => {
+    if (session) {
+      fetchClients()
     }
+  }, [session])
 
-    setClients([...clients, newClient])
-    setFormData({ email: '', name: '', calories: '2000', protein: '150' })
-    setShowForm(false)
+  const fetchClients = async () => {
+    try {
+      const res = await fetch('/api/clients')
+      if (res.ok) {
+        const data = await res.json()
+        setClients(data)
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const deleteClient = (id: number) => {
+  const addClient = async () => {
+    if (!formData.email || !formData.name) return
+
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          name: formData.name,
+        }),
+      })
+
+      if (res.ok) {
+        const newClient = await res.json()
+        setClients([...clients, newClient])
+        setFormData({ email: '', name: '', calories: '2000', protein: '150' })
+        setShowForm(false)
+      }
+    } catch (error) {
+      console.error('Error adding client:', error)
+    }
+  }
+
+  const deleteClient = async (id: string) => {
+    // TODO: Add DELETE endpoint for clients
     setClients(clients.filter((c) => c.id !== id))
   }
 
