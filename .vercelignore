@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+README_NUTRIFUEL.md
+node_modules
+.next
+.env
+.env.local
+.env.*.local
+prisma/dev.db
+.DS_Store
+*.log
