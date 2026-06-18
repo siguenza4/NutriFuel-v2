@@ -21,6 +21,7 @@ export default function MealsPage() {
   const router = useRouter()
   const [goals, setGoals] = useState({ calories: 2000, protein: 150, carbs: 200, fat: 65 })
   const [meals, setMeals] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedFood, setSelectedFood] = useState('')
   const [quantity, setQuantity] = useState('')
   const [unit, setUnit] = useState('g')
@@ -28,10 +29,39 @@ export default function MealsPage() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
+    } else if (status === 'authenticated') {
+      fetchMeals()
+      fetchGoals()
     }
   }, [status, router])
 
-  if (status === 'loading') {
+  const fetchMeals = async () => {
+    try {
+      const res = await fetch('/api/meals')
+      if (res.ok) {
+        const data = await res.json()
+        setMeals(data)
+      }
+    } catch (error) {
+      console.error('Error fetching meals:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchGoals = async () => {
+    try {
+      const res = await fetch('/api/goals')
+      if (res.ok) {
+        const data = await res.json()
+        setGoals(data)
+      }
+    } catch (error) {
+      console.error('Error fetching goals:', error)
+    }
+  }
+
+  if (status === 'loading' || loading) {
     return <div className="text-gold">Loading...</div>
   }
 
@@ -52,24 +82,37 @@ export default function MealsPage() {
     }
   }
 
-  const addMeal = () => {
+  const addMeal = async () => {
     const macros = calculateMacros()
     if (!macros) return
 
-    const newMeal = {
-      id: Date.now(),
-      ...macros,
-      quantity,
-      unit,
-    }
+    try {
+      const res = await fetch('/api/meals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(macros),
+      })
 
-    setMeals([...meals, newMeal])
-    setSelectedFood('')
-    setQuantity('')
+      if (res.ok) {
+        const newMeal = await res.json()
+        setMeals([...meals, newMeal])
+        setSelectedFood('')
+        setQuantity('')
+      }
+    } catch (error) {
+      console.error('Error adding meal:', error)
+    }
   }
 
-  const removeMeal = (id: number) => {
-    setMeals(meals.filter((m) => m.id !== id))
+  const removeMeal = async (id: number) => {
+    try {
+      const res = await fetch(`/api/meals?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setMeals(meals.filter((m) => m.id !== id))
+      }
+    } catch (error) {
+      console.error('Error removing meal:', error)
+    }
   }
 
   const totalMacros = meals.reduce(
