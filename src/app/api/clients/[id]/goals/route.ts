@@ -1,0 +1,99 @@
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'COACH') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const clientId = params.id
+
+    // Verify coach owns this client
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, coachId: session.user.id },
+    })
+
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
+    let goals = await prisma.goals.findUnique({
+      where: { userId: clientId },
+    })
+
+    if (!goals) {
+      goals = await prisma.goals.create({
+        data: {
+          userId: clientId,
+          calories: 2000,
+          protein: 150,
+          carbs: 200,
+          fat: 65,
+        },
+      })
+    }
+
+    return NextResponse.json(goals)
+  } catch (error) {
+    console.error('GET /api/clients/[id]/goals error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'COACH') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const clientId = params.id
+
+    // Verify coach owns this client
+    const client = await prisma.user.findFirst({
+      where: { id: clientId, coachId: session.user.id },
+    })
+
+    if (!client) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
+    const data = await req.json()
+    const { calories, protein, carbs, fat } = data
+
+    let goals = await prisma.goals.findUnique({
+      where: { userId: clientId },
+    })
+
+    if (!goals) {
+      goals = await prisma.goals.create({
+        data: {
+          userId: clientId,
+          calories: calories || 2000,
+          protein: protein || 150,
+          carbs: carbs || 200,
+          fat: fat || 65,
+        },
+      })
+    } else {
+      goals = await prisma.goals.update({
+        where: { userId: clientId },
+        data: {
+          ...(calories !== undefined && { calories }),
+          ...(protein !== undefined && { protein }),
+          ...(carbs !== undefined && { carbs }),
+          ...(fat !== undefined && { fat }),
+        },
+      })
+    }
+
+    return NextResponse.json(goals)
+  } catch (error) {
+    console.error('PUT /api/clients/[id]/goals error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
