@@ -1,23 +1,51 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 
 export default function ProgressPage() {
   const { data: session } = useSession()
-  const [weightEntries, setWeightEntries] = useState<{ id: number; weight: number; date: string }[]>([])
+  const [weightEntries, setWeightEntries] = useState<any[]>([])
   const [newWeight, setNewWeight] = useState('')
+  const [loading, setLoading] = useState(true)
   const [photos, setPhotos] = useState<{ id: number; url: string; caption: string; date: string }[]>([])
 
-  const addWeight = () => {
-    if (!newWeight) return
-    const entry = {
-      id: Date.now(),
-      weight: parseFloat(newWeight),
-      date: new Date().toLocaleDateString(),
+  useEffect(() => {
+    if (session) {
+      fetchWeights()
     }
-    setWeightEntries([...weightEntries, entry])
-    setNewWeight('')
+  }, [session])
+
+  const fetchWeights = async () => {
+    try {
+      const res = await fetch('/api/weight')
+      if (res.ok) {
+        const data = await res.json()
+        setWeightEntries(data)
+      }
+    } catch (error) {
+      console.error('Error fetching weights:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addWeight = async () => {
+    if (!newWeight) return
+    try {
+      const res = await fetch('/api/weight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight: parseFloat(newWeight) }),
+      })
+      if (res.ok) {
+        const entry = await res.json()
+        setWeightEntries([entry, ...weightEntries])
+        setNewWeight('')
+      }
+    } catch (error) {
+      console.error('Error adding weight:', error)
+    }
   }
 
   const addPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
