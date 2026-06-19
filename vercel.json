@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm ci --no-audit && npm run build",
+  "installCommand": "npm ci --no-audit",
+  "outputDirectory": ".next",
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
